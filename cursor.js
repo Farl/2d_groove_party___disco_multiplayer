@@ -1,10 +1,15 @@
 import _ from 'lodash-es';
 import DummyManager from './dummy-manager.js';
 import ToneMapper from 'tone-mapper';
+import { WebsimSocket } from 'websim-socket';
+import { PARTYKIT_HOST } from './env.js';
 
 class CursorManager {
     constructor() {
-        this.room = new WebsimSocket();
+        this.room = new WebsimSocket({
+            host: PARTYKIT_HOST,
+            room: '2d-groove-party-lobby',
+        });
         this.cursorContainer = document.getElementById('cursor-container');
         this.discoGrid = document.getElementById('disco-grid');
         this.remoteCursors = {};
