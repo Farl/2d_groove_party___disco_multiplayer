@@ -331,10 +331,6 @@ class CursorManager {
             this.updateTileColors();
         });
 
-        // Modify mousedown event to do nothing
-        window.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-        });
     }
 
     handleTileClick(e) {
