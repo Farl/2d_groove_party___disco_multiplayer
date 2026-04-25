@@ -1,0 +1,290 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>2D Groove Party!</title>
+    <script type="importmap">
+        {
+            "imports": {
+                "lodash-es": "https://cdn.jsdelivr.net/npm/lodash-es@4.17.21/lodash.min.js",
+                "tone-mapper": "./tone-mapper.js"
+            }
+        }
+    </script>
+    <!-- Add polyfills for older browsers -->
+    <script src="https://cdn.polyfill.io/v2/polyfill.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #111; 
+            font-family: Arial, sans-serif;
+            /* Cursor will be hidden after start page */
+        }
+        #disco-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: grid;
+            grid-template-columns: repeat(16, 1fr);
+            grid-template-rows: repeat(16, 1fr);
+            z-index: -1;
+        }
+        .disco-tile {
+            border: 1px solid rgba(255,255,255,0.05); 
+            transition: all 0.5s ease;
+            opacity: 0.3; 
+        }
+        .disco-tile.scanned {
+            transform: scale(1.1);
+            opacity: 0.6;
+        }
+        #cursor-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .remote-cursor {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: rgba(255, 0, 255, 0.5); 
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.1s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 10px;
+            box-shadow: 0 0 8px rgba(255, 0, 255, 0.3); 
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        .remote-cursor.local-cursor {
+            border: 2px solid rgba(0, 255, 0, 0.7);
+        }
+        .dummy-cursor {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background-color: rgba(255, 255, 0, 0.5); 
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.1s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: black;
+            font-size: 8px;
+            box-shadow: 0 0 6px rgba(255, 255, 0, 0.3); 
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        @keyframes gradientAnimation {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        @keyframes textShimmer {
+            0%, 100% {
+                text-shadow: 
+                    0 0 10px rgba(0, 255, 255, 0.5),
+                    0 0 20px rgba(255, 0, 255, 0.5),
+                    0 0 30px rgba(255, 255, 0, 0.5);
+            }
+            50% {
+                text-shadow: 
+                    0 0 20px rgba(255, 0, 255, 0.7),
+                    0 0 30px rgba(0, 255, 255, 0.7),
+                    0 0 40px rgba(255, 255, 0, 0.7);
+            }
+        }
+
+        #start-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                -45deg, 
+                rgba(10, 10, 20, 0.95), 
+                rgba(20, 20, 40, 0.95), 
+                rgba(30, 30, 60, 0.95), 
+                rgba(40, 40, 80, 0.95)
+            );
+            background-size: 400% 400%;
+            animation: gradientAnimation 15s ease infinite;
+            
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            color: white;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 1000;
+            backdrop-filter: blur(15px); 
+            opacity: 1;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            box-shadow: 
+                0 0 50px rgba(0, 0, 0, 0.5) inset, 
+                0 0 100px rgba(100, 100, 255, 0.1) inset;
+        }
+
+        #start-overlay.closing {
+            opacity: 0;
+            transform: scale(1.1);
+            pointer-events: none;
+        }
+
+        #start-overlay h1 {
+            font-size: 4.5rem;
+            margin-bottom: 30px;
+            color: white;
+            animation: textShimmer 3s infinite;
+            background: linear-gradient(to right, #00ffff, #ff00ff, #ffff00);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+        }
+
+        #start-overlay .instructions {
+            background-color: rgba(20, 20, 40, 0.7);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(15px);
+            border: 2px solid rgba(100, 100, 255, 0.2);
+            box-shadow: 
+                0 10px 30px rgba(0, 0, 0, 0.5),
+                0 0 20px rgba(100, 100, 255, 0.1);
+        }
+
+        #start-overlay .instructions p {
+            margin: 15px 0;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.9);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            font-weight: 300;
+        }
+
+        #start-button {
+            background: linear-gradient(
+                45deg, 
+                #00ffff, 
+                #ff00ff
+            );
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.3rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 
+                0 10px 20px rgba(0, 0, 0, 0.2),
+                0 0 20px rgba(255, 255, 255, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #start-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                120deg, 
+                transparent, 
+                rgba(255, 255, 255, 0.3), 
+                transparent
+            );
+            transition: all 0.5s ease;
+        }
+
+        #start-button:hover::before {
+            left: 100%;
+        }
+
+        #start-button:hover {
+            transform: scale(1.05) rotate(2deg);
+            box-shadow: 
+                0 15px 30px rgba(0, 0, 0, 0.3),
+                0 0 30px rgba(255, 255, 255, 0.5);
+        }
+        .tone-label {
+            position: absolute;
+            left: 0;
+            width: calc(100% / 16);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255,255,255,0.5);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            z-index: 1;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="start-overlay">
+        <h1>2D Groove Party!</h1>
+        <div class="instructions">
+            <p>Welcome to an interactive multiplayer grid experience where your cursor creates a vibrant, musical landscape!</p>
+            <p> Move your cursor to light up the grid</p>
+            <p> Each row plays a unique musical note</p>
+            <p> Explore different colors and sounds</p>
+            <p> Click tiles to place fun "dummy" markers</p>
+        </div>
+        <button id="start-button">Start Grooving!</button>
+    </div>
+
+    <div id="disco-grid"></div>
+    <div id="cursor-container"></div>
+    <script type="module">
+        import CursorManager from './cursor.js';
+        
+        // Add start overlay logic
+        const startOverlay = document.getElementById('start-overlay');
+        const startButton = document.getElementById('start-button');
+        
+        startButton.addEventListener('click', () => {
+            // Add closing animation
+            startOverlay.classList.add('closing');
+            
+            // Disable system cursor after delay to allow closing animation
+            setTimeout(() => {
+                startOverlay.style.display = 'none';
+                document.body.style.cursor = 'none';
+                
+                // Initialize the game
+                new CursorManager();
+            }, 500);  // Match the transition duration in CSS
+        });
+    </script>
+</body>
+</html>
